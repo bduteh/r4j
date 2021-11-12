@@ -5,13 +5,13 @@ import io.vavr.control.Try;
 import java.time.Duration;
 import java.util.function.Supplier;
 
-public class App {
+public class App { 
     public static void main(String[] args) throws InterruptedException {
 
-        BackendService backendService = new BackendService();
+        RestService restService = new RestService();
 
         CircuitBreakerConfig circuitBreakerConfig = CircuitBreakerConfig.custom()
-            .slidingWindowSize(2)
+            .slidingWindowSize(3)
             .failureRateThreshold(50)
             .recordExceptions(NullPointerException.class)
             .waitDurationInOpenState(Duration.ofMillis(100))
@@ -22,18 +22,22 @@ public class App {
             CircuitBreakerRegistry.of(circuitBreakerConfig);
 
         CircuitBreaker circuitBreaker = circuitBreakerRegistry
-            .circuitBreaker("my-circuit-breaker");
+            .circuitBreaker("rest-service");
 
         Supplier<String> decoratedSupplier = CircuitBreaker
-            .decorateSupplier(circuitBreaker, backendService::doSomething);
+            .decorateSupplier(circuitBreaker, restService::fetchSomething);
 
-        for (int i = 0; i < 200; i++) {
-
+        for (int i = 0; i < 100; i++) {
             String result = Try.ofSupplier(decoratedSupplier)
-                .recover(throwable -> "Recovery").get();
+                .recover(throwable -> recovery()).get();
 
-            System.out.println(circuitBreaker.getState() + " " + result);
+            System.out.println(result + " " + circuitBreaker.getState());
+
             Thread.sleep(10);
         }
+    }
+
+    private static String recovery() {
+        return "Recovering";
     }
 }
